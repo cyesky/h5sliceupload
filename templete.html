@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+<span id="progress"></span>
+<input type="file" id="upload">
+</body>
+</html>
+<script src="browser-md5-file.min.js"></script>
+<script>
+    window.onload = function () {
+        document.querySelector('#upload').onchange = function () {
+            if (!this.value) {
+                return false;
+            }
+            var file = this.files[0];
+            browserMD5File(file, function (err, md5) {
+                if (!err) {
+                    up(file, md5);
+                } else {
+                    console.log(err);
+                }
+            });
+        }
+    };
+
+    /**
+     * 上传文件
+     * @param file
+     * @param md5
+     */
+    function up(file, md5) {
+        var size = file.size;
+        const LENGTH = 1024 * 512;//设置单个分片的大小
+        var start = 0;
+        var end = start + LENGTH;
+        var fd;
+        var times = 0;
+        var xhr;
+        var node = document.querySelector('#progress');
+        upload();
+        function upload() {
+            if (start < size) {
+                ++times;
+                xhr = new XMLHttpRequest();
+                xhr.open('POST', 'upload.php');
+                fd = new FormData;
+                fd.append('file', file.slice(start, end));
+                fd.append('file_name', file.name);
+                fd.append('size', file.size);
+                fd.append('md5', md5);
+                if (end > size) {
+                    fd.append('last_upload', 'yes');
+                }
+                xhr.send(fd);
+                xhr.onreadystatechange = function () {
+                    if (xhr.readyState === 4 && xhr.status === 200) {
+                        if (xhr.responseText.length > 0) {
+                            var response = JSON.parse(xhr.responseText);
+                            if (response.code === 1) {
+
+                                node.innerText = '100%';
+                                var fileInfo = response.fileInfo;//文件信息
+                                //todo 上传成功后的处理
+                                console.log(response)
+
+
+                            } else {
+                                var error = response.message;
+                                //todo 服务端的报错处理
+                            }
+                        } else {
+                            if (times * LENGTH < size) {
+                                var step = parseInt(times * LENGTH / size * 100);
+                                node.style.display = '';
+                                node.innerText = step + '%';
+                            }
+                            setTimeout(upload, 0);
+                        }
+
+                    }
+                };
+                start += LENGTH;
+                end += LENGTH;
+            }
+        }
+    }
+
+</script>
